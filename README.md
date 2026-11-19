@@ -1,4 +1,4 @@
-# 1DM – Flutter Android app
+# MGDM (Motion Graph Download Manager)
 
 Download manager + built-in browser, built from your HTML design.
 
