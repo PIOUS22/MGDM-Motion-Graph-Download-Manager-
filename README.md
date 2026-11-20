@@ -1,53 +1,46 @@
-# Motion Downloader for Android
+# MGDM (Motion Graph Download Manager) – Kotlin / Jetpack Compose Android app
 
-Phone version of the desktop Motion Downloader: paste a link, **Analyze**, pick single video /
-playlist videos / whole playlist, choose MP4 quality or MP3/M4A, optional subtitles, **Download**.
-Powered by yt-dlp + ffmpeg (bundled via the `youtubedl-android` library), UI in Kotlin + Jetpack Compose.
+Download manager + built-in browser, native Kotlin, built from your HTML design.
 
-Files are saved to **Downloads/MotionDownloader** by default; use **Save to -> Browse** to pick any folder (playlists get their own sub-folder).
-Use **Share -> Motion Downloader** in the YouTube app or a browser: a download pop-up (Music / Video options with sizes) slides up over that app, and the download runs in the background. "More formats" opens the full app (playlists, subtitles, all qualities).
+## Build the APK without Android Studio (easiest)
+1. Create a GitHub repo and upload everything in this folder.
+2. Actions tab -> "Build Android APK" -> Run workflow.
+3. Download artifact `MGDM-apk`, unzip, install the .apk on your phone
+   (allow "install unknown apps").
 
-Differences from the desktop app
-- "Browser cookies" does not exist on Android -> import a `cookies.txt` file instead (for sign-in / age-restricted videos).
-- Downloads keep running in the background with a progress notification.
+## Build with Android Studio
+Open this folder as a project, let Gradle sync (AGP 8.5.2, Kotlin 2.0.20),
+then Run on your phone with USB debugging, or Build > Build APK.
+(If Studio asks about the Gradle wrapper, choose Gradle 8.9.)
 
-## Get the APK (pick one)
+## Files (app/src/main/java/com/piash/onedm)
+AppState.kt      settings, bookmarks/history, download engine, foreground service
+MainActivity.kt  entry point, theme, dialog + toast host
+DmScreen.kt      download list, tabs, search, cards
+Drawer.kt        Settings drawer (Types, Download, Options, Notifications, App)
+BrowserScreen.kt WebView browser, tabs, 3-dot menu, grabber, find, reader
+Ui.kt            shared dialogs (add, magnet, batch, tutorial, adblock)
+Rename the app inside the UI: APP_NAME in AppState.kt (and res/values/strings.xml).
 
-### A) GitHub Actions (no Android Studio needed)
-1. Create a new GitHub repo and upload everything in this folder (keep the `.github` folder).
-2. Open the **Actions** tab -> *Build APK* -> **Run workflow** (it also runs on every push).
-3. When it finishes (~5 min), open the run and download the **MotionDownloader-apk** artifact -> unzip -> `app-release.apk`.
+## In-app updates
+The app checks a `version.json` file on launch (and from Settings > Check for updates).
+If `versionCode` is higher than the installed app, a banner appears: Download now ->
+background download -> Install now.
 
-### B) Android Studio
-1. Install Android Studio, choose **Open** and select this folder, let Gradle sync.
-2. **Build -> Build Bundle(s)/APK(s) -> Build APK(s)**, or run:  `gradle assembleRelease`
-3. APK: `app/build/outputs/apk/release/app-release.apk`
+One-time setup:
+1. Put `version.json` (sample in this folder) in your GitHub repo root and edit it.
+2. Set `DEFAULT_URL` in Update.kt to
+   https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/version.json
+   (or paste the link inside the app: Settings > Set update URL).
 
-## Install on the phone
-Copy the APK to the phone, open it, and allow "Install unknown apps" for your file manager/browser when asked.
-The APK is signed with the debug key; use your own signing config in `app/build.gradle.kts` for publishing.
+Releasing a new version:
+1. In app/build.gradle.kts raise `versionCode` (2, 3, ...) and `versionName`.
+2. Push a tag:  git tag v1.1 && git push origin v1.1
+   GitHub Actions builds and attaches app-release.apk to a Release.
+3. In version.json set the same versionCode/versionName and
+   "apkUrl": "https://github.com/YOUR_USER/YOUR_REPO/releases/latest/download/app-release.apk"
+   Commit it. Phones with the older version will see the update banner.
 
-## Notes
-- First launch unpacks Python/ffmpeg (a few seconds). APK size is large (~80-100 MB) because it contains them.
-- Sites change often. To ship a newer yt-dlp, bump `val ytdl = "0.18.1"` in `app/build.gradle.kts` to the latest
-  `io.github.junkfood02.youtubedl-android` version and rebuild.
-- Only download content you have the right to download.
-
-## Updates, folders and versions
-- A **Release** (APK attached) is published when you push a tag like `v1.1.0` or run the workflow with a version (see OWNER_GUIDE.md, section C). Plain pushes to main only make a test build.
-  The installed app checks the newest release (on launch and twice a day in the background) and shows an
-  "Update available" notification plus an in-app **Download & install** button. The repo must be **public**.
-- Files are saved to `Downloads/MotionDownloader/<Site>/<Video|Audio>/` (e.g. `.../Facebook/Video`, `.../YouTube/Audio`).
-- The signing key is `app/release.jks` (kept in the repo so new builds can update old installs). Replace it
-  with your own private key before publishing anywhere public.
-- **New design** (Home / Downloads / Settings): paste a link on Home, pick Video/Audio, quality and subtitles, then Download. Downloads go into a queue.
-- **Downloads** tab: filters All / Downloading / Pending / Done, Pause and Resume, Cancel, Retry, Play, clear finished. The list is saved on the phone.
-- **Internet drops?** The download is not failed. It shows "Waiting for internet…" and continues from where it stopped when the connection is back.
-- **Built-in player**: tap Play on a finished download (or its notification) to watch or listen inside the app. Rotate the phone for full screen. Turn it off in Settings > Playback to use another player app.
-- **Browser** tab: browse any website inside the app. When a video is open on the page, a small download button appears: tap it to pick quality and save. File links (PDF, APK, ZIP ...) open a "Download file!" pop-up (name, size, location, Wi-Fi only, Retry; ADD / CANCEL / START). Those downloads appear in the Downloads tab and go to Downloads/MotionDownloader/Files.
-- Browser extras: several tabs (tab button shows the count; tap it to switch, close or open a new tab), pull down at the top of a page to reload, and a three-dot menu (New tab, Reload, Forward, Copy link, History, Start page, Close tab). History is saved on the phone.
-- **New version pop-up**: when a newer release exists, the app shows "New version available". Download now downloads the APK in the background (progress in the notification). When it finishes, a second notification (and a pop-up in the app) offers Install now.
-- **Settings**: default quality, format and subtitle language; Wi-Fi only; simultaneous downloads (1-3); save location; quick share pop-up on/off; theme; cookies; update the app and yt-dlp.
-
-## Owner controls
-See OWNER_GUIDE.md: remote.json (force update, announcement, maintenance, feature switches) and optional Firebase (analytics, crash reports, push).
+Signing: builds use app/mgdm.keystore (password mgdm1234, alias mgdm) so every version
+has the same signature and can install over the old one. Keep this file safe and make
+your repo private. If you lose it, users must uninstall and reinstall.
