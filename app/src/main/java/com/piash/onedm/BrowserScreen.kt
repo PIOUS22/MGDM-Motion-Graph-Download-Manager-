@@ -44,13 +44,13 @@ import java.io.ByteArrayInputStream
 private const val DESKTOP_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 private val mediaRe = Regex("\\.(mp4|m3u8|mp3|m4a|webm|mkv|flac|wav|mpd)$")
 
-private const val SCAN_JS = """(function(){var r=[];
+private val SCAN_JS = """(function(){var r=[];
 function add(u,t){if(!u||u.indexOf('blob:')==0||u.indexOf('data:')==0)return;try{u=new URL(u,location.href).href}catch(e){return}r.push([u,t])}
 document.querySelectorAll('video,audio').forEach(function(e){var t=e.tagName=='VIDEO'?'Videos':'Music';add(e.currentSrc||e.src,t);e.querySelectorAll('source').forEach(function(s){add(s.src,t)})});
 document.querySelectorAll('a[href]').forEach(function(a){if(/\.(mp4|mkv|webm|mp3|m4a|flac|wav|zip|rar|7z|apk|pdf|iso|torrent|srt|vtt)(\?|${'$'})/i.test(a.href))add(a.href,'')});
 var seen={};return JSON.stringify(r.filter(function(x){if(seen[x[0]])return false;seen[x[0]]=1;return true}))})()"""
 
-private const val READER_JS = """(function(){var id='__reader';var o=document.getElementById(id);if(o){o.remove();return}
+private val READER_JS = """(function(){var id='__reader';var o=document.getElementById(id);if(o){o.remove();return}
 var s=document.createElement('style');s.id=id;
 s.textContent='header,nav,aside,footer,iframe,[class*=sidebar],[class*=advert]{display:none!important}body{max-width:700px!important;margin:0 auto!important;padding:16px!important;font-size:19px!important;line-height:1.7!important;background:#fafafa!important;color:#222!important}';
 document.head.appendChild(s)})()"""
@@ -255,13 +255,13 @@ object Browser {
         urls.forEach { newTab(false); go(it) }
     }
 
-    fun setDesktop(v: Boolean) {
+    fun applyDesktop(v: Boolean) {
         desktop = v
         tabs.forEach { it.web.settings.userAgentString = if (v) DESKTOP_UA else null }
         if (!t.home) t.web.reload()
     }
 
-    fun setJs(v: Boolean) {
+    fun applyJs(v: Boolean) {
         js = v
         tabs.forEach { it.web.settings.javaScriptEnabled = v }
         if (!t.home) t.web.reload()
@@ -294,7 +294,7 @@ fun BrowserScreen() {
                 AndroidView(factory = { (t.web.parent as? ViewGroup)?.removeView(t.web); t.web }, modifier = Modifier.fillMaxSize())
             }
             if (AppState.captureMedia && !t.home && t.media.isNotEmpty())
-                ExtendedFloatingActionButton({ B.openGrabber() }, Modifier.align(Alignment.BottomEnd).padding(16.dp), containerColor = Purple, contentColor = Color.White,
+                ExtendedFloatingActionButton(onClick = { B.openGrabber() }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), containerColor = Purple, contentColor = Color.White,
                     icon = { Icon(Icons.Default.CloudDownload, null) }, text = { Text("Grab Media (${t.media.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold) })
         }
     }
@@ -367,8 +367,8 @@ private fun BrowserBar() {
                     MI("Bookmark all tabs", Icons.Default.BookmarkAdd) { B.tabs.forEach { if (!it.home) AppState.addBookmark(it.title, it.url) }; AppState.toast("Bookmarked all open tabs") },
                     MI("Share link", Icons.Default.Share) { AppState.share(B.curUrl) },
                     MI("Dark mode", Icons.Default.DarkMode, AppState.dark) { AppState.set("dark", !AppState.dark); AppState.set("followSystem", false) },
-                    MI("Request desktop site", Icons.Default.DesktopWindows, B.desktop) { B.setDesktop(!B.desktop) },
-                    MI("Enable JavaScript", Icons.Default.Javascript, B.js) { B.setJs(!B.js) },
+                    MI("Request desktop site", Icons.Default.DesktopWindows, B.desktop) { B.applyDesktop(!B.desktop) },
+                    MI("Enable JavaScript", Icons.Default.Javascript, B.js) { B.applyJs(!B.js) },
                     MI("Reader Mode", Icons.Default.ChromeReaderMode, B.reader) { B.reader = !B.reader; t.web.evaluateJavascript(READER_JS, null); AppState.toast(if (B.reader) "Reader Mode ON" else "Reader Mode OFF") },
                     MI("Manage adblock hosts & filters", Icons.Default.Public) { showAdblock() },
                     MI("Settings", Icons.Default.Settings) { AppState.openSettings() },
