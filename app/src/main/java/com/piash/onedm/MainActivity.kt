@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppState.init(application)
+        Updater.check(false)
         if (Build.VERSION.SDK_INT >= 33) notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
         intent?.data?.let { u -> if (u.scheme?.startsWith("http") == true) { AppState.inBrowser = false; showAddDialog(u.toString()) } }
         setContent { Root() }

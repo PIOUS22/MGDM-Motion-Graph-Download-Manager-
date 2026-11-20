@@ -3,6 +3,7 @@ package com.piash.onedm
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Message
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.view.ViewGroup
@@ -75,6 +76,7 @@ class BTab(val incognito: Boolean, js: Boolean, desktop: Boolean) {
             useWideViewPort = true
             builtInZoomControls = true
             displayZoomControls = false
+            setSupportMultipleWindows(true)
             userAgentString = if (desktop) DESKTOP_UA else null
         }
         web.setDownloadListener { u, ua, cd, mime, _ ->
@@ -84,6 +86,24 @@ class BTab(val incognito: Boolean, js: Boolean, desktop: Boolean) {
         web.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView, p: Int) { progress = p }
             override fun onReceivedTitle(view: WebView, t: String?) { if (!t.isNullOrBlank()) title = t }
+
+            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+                if (!isUserGesture || AppState.bool("blockPopups", false)) {
+                    AppState.blocked++
+                    AppState.toast("Popup blocked")
+                    return false
+                }
+                val ht = view.hitTestResult.type
+                val tappedLink = ht == WebView.HitTestResult.SRC_ANCHOR_TYPE || ht == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+                val nt = Browser.popupTab(incognito)
+                (resultMsg.obj as WebView.WebViewTransport).webView = nt.web
+                resultMsg.sendToTarget()
+                if (tappedLink) Browser.cur = Browser.tabs.indexOf(nt)
+                else AppState.toast("Popup opened in a background tab (${Browser.tabs.size} tabs)")
+                return true
+            }
+
+            override fun onCloseWindow(window: WebView) { Browser.closeByWeb(window) }
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
@@ -161,6 +181,22 @@ object Browser {
         val isUrl = q.startsWith("http://") || q.startsWith("https://") || (q.contains('.') && !q.contains(' '))
         val url = if (isUrl) (if (q.startsWith("http")) q else "https://$q") else "https://www.google.com/search?q=" + java.net.URLEncoder.encode(q, "UTF-8")
         t.home = false; t.url = url; t.media.clear(); t.web.loadUrl(url)
+    }
+
+    fun popupTab(inc: Boolean): BTab {
+        val nt = BTab(inc, js, desktop)
+        nt.home = false
+        tabs.add(nt)
+        return nt
+    }
+
+    fun closeByWeb(w: WebView) {
+        val i = tabs.indexOfFirst { it.web === w }
+        if (i < 0 || tabs.size == 1) return
+        val current = tabs[cur]
+        tabs.removeAt(i)
+        cur = tabs.indexOf(current).coerceAtLeast(0)
+        w.destroy()
     }
 
     fun goHome() { t.home = true; t.url = ""; t.media.clear() }
@@ -286,6 +322,7 @@ fun BrowserScreen() {
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         BrowserBar()
+        UpdateBanner()
         if (t.progress < 100 && !t.home) LinearProgressIndicator({ t.progress / 100f }, Modifier.fillMaxWidth().height(2.dp), color = Accent)
         if (B.findOpen) FindBar()
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -347,6 +384,7 @@ private fun BrowserBar() {
                     MI("Switch to Incognito", Icons.Default.VisibilityOff) { B.newTab(true) },
                     MI("Return to $APP_NAME", Icons.Default.CloudDownload) { AppState.inBrowser = false },
                     MI("Exit Browser", Icons.Default.ExitToApp) { AppState.inBrowser = false },
+                    MI("Block popups", Icons.Default.Block, AppState.bool("blockPopups", false)) { AppState.set("blockPopups", !AppState.bool("blockPopups", false)) },
                     MI("Block Ads", Icons.Default.Shield, AppState.blockAds) { AppState.set("blockAds", !AppState.blockAds) },
                     MI("Capture audio/video", Icons.Default.TravelExplore, AppState.captureMedia) { AppState.set("captureMedia", !AppState.captureMedia) },
                     MI("View Page Resources", Icons.Default.Layers) { B.openGrabber() },

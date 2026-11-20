@@ -107,6 +107,7 @@ fun DmScreen() {
             },
         ) { pad ->
             Column(Modifier.padding(pad).fillMaxSize()) {
+                UpdateBanner()
                 if (banner) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Tip: open the Browser (globe icon) and tap \"Grab Media\" to download videos and files from any page.", color = Color(0xFFE53935), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     IconButton({ banner = false }) { Icon(Icons.Default.Close, null, modifier = Modifier.size(18.dp)) }

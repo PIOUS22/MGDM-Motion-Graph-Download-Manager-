@@ -16,10 +16,20 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            // Same key every build, so in-app updates can install over the old version.
+            storeFile = file("mgdm.keystore")
+            storePassword = "mgdm1234"
+            keyAlias = "mgdm"
+            keyPassword = "mgdm1234"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

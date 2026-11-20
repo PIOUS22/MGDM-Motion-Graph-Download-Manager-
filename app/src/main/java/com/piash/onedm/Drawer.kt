@@ -131,6 +131,8 @@ fun AppDrawer(close: () -> Unit) {
                 Sw("Follow System Theme if supported by device", "followSystem", false)
                 Pick("App Theme", if (s.dark) "Dark" else "Light", listOf("Light", "Dark")) { s.set("dark", it == "Dark"); s.set("followSystem", false) }
                 Pick("Language", s.str("lang", "English"), listOf("English", "Spanish", "Hindi", "Bengali", "Arabic")) { s.set("lang", it); s.toast("Language saved (screens are English only for now)") }
+                Lnk(Icons.Default.SystemUpdate, "Check for updates (v${Updater.currentName()})") { close(); Updater.check(true) }
+                Lnk(Icons.Default.Link, "Set update URL") { close(); Updater.showUrlDialog() }
                 Lnk(Icons.Default.Share, "Share the app") { s.share("Try $APP_FULL_NAME - download manager & browser") }
                 Lnk(Icons.Default.Public, "Manage adblock hosts & filters") { close(); showAdblock() }
                 Lnk(Icons.Default.BackHand, "Grabber") { close(); s.inBrowser = true; Browser.pendingGrab = true }
