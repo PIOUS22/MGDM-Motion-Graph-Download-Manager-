@@ -1,0 +1,101 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]   # test build only (no release)
+    tags: ['v*']               # tag like v1.2.0  -> build AND publish a release
+  workflow_dispatch:           # manual: Actions tab -> Run workflow -> type a version to release
+    inputs:
+      version:
+        description: 'Release version, e.g. 1.2.0 (leave empty = test build, no release)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # needed to publish the release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      FCM_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Work out the version once: tag v1.2.0 -> 1.2.0, or the version typed in "Run workflow".
+      - name: Decide version
+        id: ver
+        run: |
+          V=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            V="${{ github.event.inputs.version }}"
+            V="${V#v}"
+          fi
+          if [[ -n "$V" ]]; then
+            if [[ ! "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Version must look like 1.2.0 (got '$V')"; exit 1
+            fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            V="1.0.${{ github.run_number }}"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "APP_VERSION=$V" >> "$GITHUB_ENV"
+          echo "Building version $V"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      # versionName = APP_VERSION, versionCode = run number (see app/build.gradle.kts).
+      - name: Build release APK
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Name the APK
+        run: mv app/build/outputs/apk/release/app-release.apk MotionDownloader-${{ steps.ver.outputs.version }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MotionDownloader-apk
+          path: MotionDownloader-*.apk
+
+      # Installed apps look for the newest release and offer the update.
+      - name: Publish release
+        if: steps.ver.outputs.release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Motion Downloader ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: MotionDownloader-*.apk
+
+      # Optional instant push to every phone (needs the FIREBASE_SERVICE_ACCOUNT secret, see OWNER_GUIDE.md).
+      - name: Send push notification
+        if: steps.ver.outputs.release == 'true' && env.FCM_KEY != ''
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          pip install --quiet google-auth requests
+          python3 - <<'PY'
+          import json, os, requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+          info = json.loads(os.environ["FCM_KEY"])
+          creds = service_account.Credentials.from_service_account_info(
+              info, scopes=["https://www.googleapis.com/auth/firebase.messaging"])
+          creds.refresh(Request())
+          body = {"message": {"topic": "all", "notification": {
+              "title": "Update available",
+              "body": "Motion Downloader " + os.environ["VERSION"] + " is ready. Open the app to update."}}}
+          r = requests.post("https://fcm.googleapis.com/v1/projects/" + info["project_id"] + "/messages:send",
+                            headers={"Authorization": "Bearer " + creds.token}, json=body)
+          print(r.status_code, r.text)
+          PY
